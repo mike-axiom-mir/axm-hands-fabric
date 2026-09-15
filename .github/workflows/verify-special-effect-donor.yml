@@ -1,0 +1,24 @@
+name: Verify special-effect donor
+
+on:
+  push:
+    paths:
+      - 'experiments/special-effect-hands-v0.1/**'
+      - '.github/workflows/verify-special-effect-donor.yml'
+  pull_request:
+    paths:
+      - 'experiments/special-effect-hands-v0.1/**'
+      - '.github/workflows/verify-special-effect-donor.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm --prefix experiments/special-effect-hands-v0.1 test
