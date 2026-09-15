@@ -16,13 +16,29 @@ A **Hand** is a bounded executable transformation with explicit inputs, outputs,
 - offline/local execution is preferred for core capability where practical;
 - provenance, version, dependency and verification status travel with every reusable Hand.
 
-## First proven donor
+## Proven donor bodies
 
-The first donor proof lives in `mike-axiom-mir/axm-visual-effect-fabric/hand-lab` and was merged as Visual Effect Fabric PR #3 (merge commit `9ce4b0de198aeb5890d8cce58da05a11880348ab`).
+### Collaboration Platform modular Hands
+
+`intakes/platform-hands/` is a byte-exact intake of the Collaboration Platform's portable modular Hands closure at donor commit `27757ace6133b243a200b0463e427c8b04d5a8e3`.
+
+The verified intake contains **357 donor/support files / 28,889,695 bytes** and preserves:
+
+- Asset Hands;
+- AI-Native Hands;
+- their proven donor-relative evidence, visual, vendor and deterministic support closure;
+- exact per-file bytes plus an aggregate SHA-256 receipt;
+- the donor's dependency, permission, loss and verification boundaries.
+
+The intake self-tests the registries plus the donor Universal Component, Play Composer and AI-Native Hands checks. Presence in this Fabric does not mean every Hand is runnable in every host: declared dependencies still apply.
+
+### Visual Effect Fabric Hand graph
+
+The first focused donor proof lives in `mike-axiom-mir/axm-visual-effect-fabric/hand-lab` and was merged as Visual Effect Fabric PR #3 (merge commit `9ce4b0de198aeb5890d8cce58da05a11880348ab`).
 
 It proves an eight-Hand electric-storm graph with caller-neutral deterministic execution, hashed editable checkpoints after every Hand, mid-process edits, downstream-only partial replay, and canonical effect state separate from SVG realization. The same state/seed yields the same result for human UI, AI Agent and deterministic Mirror callers.
 
-That donor is evidence and a starting pattern, not automatic canon for every future Hand.
+Donor bodies are evidence and reusable capability source, not automatic canon for every future Hand.
 
 ## Fabric vs factory
 

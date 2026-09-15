@@ -1,0 +1,168 @@
+name: Verified Platform Hands intake
+
+on:
+  push:
+    branches:
+      - chatgpt/platform-hands-intake
+    paths:
+      - .github/workflows/intake-platform-hands.yml
+
+permissions:
+  contents: write
+
+jobs:
+  intake:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out Hands Fabric
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check out pinned Platform donor
+        uses: actions/checkout@v4
+        with:
+          repository: mike-axiom-mir/axm-collaboration-platform
+          ref: 27757ace6133b243a200b0463e427c8b04d5a8e3
+          path: _platform
+          persist-credentials: false
+
+      - name: Verify donor revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="27757ace6133b243a200b0463e427c8b04d5a8e3"
+          observed="$(git -C _platform rev-parse HEAD)"
+          test "$observed" = "$expected" || { echo "SOURCE_MOVED expected=$expected observed=$observed"; exit 1; }
+
+      - name: Copy portable Hands body
+        shell: bash
+        run: |
+          set -euo pipefail
+          capsule="intakes/platform-hands"
+          rm -rf "$capsule"
+          mkdir -p "$capsule/shared" "$capsule/tools/spatial-studio" "$capsule/tools/film-motion-studio" "$capsule/tools/asset-fabric" "$capsule/tools"
+
+          rsync -a _platform/shared/asset-hands/ "$capsule/shared/asset-hands/"
+          rsync -a _platform/shared/ai-native-hands/ "$capsule/shared/ai-native-hands/"
+          rsync -a _platform/shared/evidence-retention/ "$capsule/shared/evidence-retention/"
+          rsync -a _platform/shared/visual-kernel/ "$capsule/shared/visual-kernel/"
+          rsync -a _platform/shared/visual-fx/ "$capsule/shared/visual-fx/"
+          rsync -a _platform/shared/vendor/ "$capsule/shared/vendor/"
+          cp _platform/tools/spatial-studio/spatial-core.js "$capsule/tools/spatial-studio/"
+          cp _platform/tools/spatial-studio/spatial-geometry.js "$capsule/tools/spatial-studio/"
+          cp _platform/tools/film-motion-studio/film-motion-core.js "$capsule/tools/film-motion-studio/"
+          cp _platform/tools/asset-fabric/fabric-core.js "$capsule/tools/asset-fabric/"
+          rsync -a _platform/tools/deterministic-json-core/ "$capsule/tools/deterministic-json-core/"
+
+      - name: Verify byte-exact donor closure and write receipt
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json
+
+          source = Path('_platform')
+          capsule = Path('intakes/platform-hands')
+          roots = [
+              'shared/asset-hands',
+              'shared/ai-native-hands',
+              'shared/evidence-retention',
+              'shared/visual-kernel',
+              'shared/visual-fx',
+              'shared/vendor',
+              'tools/deterministic-json-core',
+          ]
+          files = []
+          for root in roots:
+              for src in sorted((source / root).rglob('*')):
+                  if src.is_file():
+                      files.append(src.relative_to(source))
+          for rel in [
+              Path('tools/spatial-studio/spatial-core.js'),
+              Path('tools/spatial-studio/spatial-geometry.js'),
+              Path('tools/film-motion-studio/film-motion-core.js'),
+              Path('tools/asset-fabric/fabric-core.js'),
+          ]:
+              files.append(rel)
+
+          rows=[]
+          for rel in sorted(set(files), key=lambda p: p.as_posix()):
+              src=source/rel
+              dst=capsule/rel
+              if not dst.is_file():
+                  raise SystemExit(f'MISSING_COPY:{rel.as_posix()}')
+              a=src.read_bytes(); b=dst.read_bytes()
+              if a != b:
+                  raise SystemExit(f'BYTE_MISMATCH:{rel.as_posix()}')
+              rows.append({'path':rel.as_posix(),'bytes':len(a),'sha256':hashlib.sha256(a).hexdigest()})
+
+          digest=hashlib.sha256(''.join(f"{r['path']}\0{r['bytes']}\0{r['sha256']}\n" for r in rows).encode()).hexdigest()
+          receipt={
+              'schema':'axm.hands-fabric.intake/v1',
+              'source_repository':'mike-axiom-mir/axm-collaboration-platform',
+              'source_commit':'27757ace6133b243a200b0463e427c8b04d5a8e3',
+              'target_repository':'mike-axiom-mir/axm-hands-fabric',
+              'capsule_root':'intakes/platform-hands',
+              'copied_file_count':len(rows),
+              'copied_bytes':sum(r['bytes'] for r in rows),
+              'aggregate_manifest_sha256':digest,
+              'copy_verified_byte_exact':True,
+              'donor_mutated':False,
+              'authority_change':False,
+              'families':['shared/asset-hands','shared/ai-native-hands'],
+              'support':['shared/evidence-retention','shared/visual-kernel','shared/visual-fx','shared/vendor','tools/deterministic-json-core','tools/spatial-studio/spatial-core.js','tools/spatial-studio/spatial-geometry.js','tools/film-motion-studio/film-motion-core.js','tools/asset-fabric/fabric-core.js']
+          }
+          (capsule/'INTAKE_RECEIPT.json').write_text(json.dumps(receipt,indent=2,sort_keys=True)+'\n')
+          PY
+
+          cat > intakes/platform-hands/index.js <<'EOF'
+          'use strict';
+
+          module.exports = {
+            assetHands: require('./shared/asset-hands/asset-hands'),
+            aiNativeHands: require('./shared/ai-native-hands')
+          };
+          EOF
+
+          cat > intakes/platform-hands/README.md <<'EOF'
+          # Platform Hands intake
+
+          Byte-exact portable intake of the Collaboration Platform modular Hands and the smallest proven support closure required by their existing runtime-relative imports.
+
+          This is source-preserving intake evidence, not a claim that every Hand is runnable in every host. Each Hand keeps its declared dependencies, permissions, losses and verification ceiling. Intake also grants no CANON, publication or user authority.
+
+          The active donor revision and aggregate digest are recorded in `INTAKE_RECEIPT.json`.
+          EOF
+
+      - name: Smoke-test registries and donor self-tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const capsule=require('./intakes/platform-hands');
+          const list=capsule.assetHands.list();
+          if(!Array.isArray(list) || list.length < 36) throw new Error('asset Hands registry incomplete');
+          const ai=Object.keys(capsule.aiNativeHands);
+          if(ai.length < 6) throw new Error('AI-native Hands registry incomplete');
+          console.log('CAPSULE_REGISTRY_OK assetHands='+list.length+' aiNativeHands='+ai.length);
+          NODE
+          node intakes/platform-hands/shared/asset-hands/universal-component-selftest.js
+          node intakes/platform-hands/shared/asset-hands/play-composer-selftest.js
+          node intakes/platform-hands/shared/ai-native-hands/selftest.js
+
+      - name: Commit verified intake
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf _platform
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add intakes/platform-hands
+          if git diff --cached --quiet; then
+            echo "No intake changes"
+            exit 0
+          fi
+          git commit -m "Import verified Platform Hands body"
+          git push origin HEAD:${GITHUB_REF_NAME}
